@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>LinguaStep Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+ --bg1:#141e30;--bg2:#243b55;
+ --card:#1e1e2e;--accent:#6c63ff;
+ --good:#00e5ff;--bad:#ff7676;
+ --text:#fff;
+}
+*{box-sizing:border-box;font-family:system-ui}
+body{
+ margin:0;min-height:100vh;
+ background:linear-gradient(var(--bg1),var(--bg2));
+ color:var(--text);display:flex;justify-content:center;
+}
+.app{max-width:420px;width:100%;padding:16px}
+.hidden{display:none}
+.card{
+ background:var(--card);border-radius:22px;
+ padding:18px;margin-bottom:12px;
+ text-align:center
+}
+button{
+ width:100%;padding:14px;border:0;
+ border-radius:18px;font-weight:700;
+ margin-bottom:10px;cursor:pointer
+}
+.primary{background:var(--good)}
+.secondary{background:var(--accent);color:#fff}
+.option{background:#2a2a3c;padding:14px;border-radius:16px;margin:8px 0}
+.option:hover{background:#3a3a55}
+.word{font-size:32px;font-weight:800}
+input{
+ width:100%;padding:14px;border-radius:16px;
+ border:none;font-size:16px
+}
+.top{
+ display:flex;justify-content:space-between;margin-bottom:12px
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<!-- HOME -->
+<div id="home">
+ <div class="card">
+  <div>⭐ Level <span id="level">1</span></div>
+  <div>XP: <span id="xp">0</span></div>
+  <div>❤️ Lives: <span id="lives">3</span></div>
+ </div>
+
+ <button class="secondary" onclick="startFlash()">🃏 Flashcards</button>
+ <button class="secondary" onclick="startQuiz()">🎯 Quiz</button>
+ <button class="secondary" onclick="startWrite()">✍ Write word</button>
+ <button class="secondary" onclick="startSpeed()">⏱ Speed game</button>
+</div>
+
+<!-- FLASH -->
+<div id="flash" class="hidden">
+ <div class="top"><span onclick="goHome()">←</span><span>Flashcards</span></div>
+ <div class="card" onclick="flipCard()">
+  <div class="word" id="flashWord"></div>
+  <div id="flashBack" class="hidden"></div>
+ </div>
+ <button class="primary" onclick="nextFlash()">Next</button>
+</div>
+
+<!-- QUIZ -->
+<div id="quiz" class="hidden">
+ <div class="top"><span onclick="goHome()">←</span><span>Quiz</span></div>
+ <div class="card word" id="quizWord"></div>
+ <div id="quizOptions"></div>
+</div>
+
+<!-- WRITE -->
+<div id="write" class="hidden">
+ <div class="top"><span onclick="goHome()">←</span><span>Write</span></div>
+ <div class="card word" id="writeWord"></div>
+ <input id="writeInput" placeholder="Type translation">
+ <button class="primary" onclick="checkWrite()">Check</button>
+</div>
+
+<!-- SPEED -->
+<div id="speed" class="hidden">
+ <div class="top"><span onclick="goHome()">←</span><span>Speed</span></div>
+ <div class="card word" id="speedWord"></div>
+ <div>⏱ <span id="time">5</span></div>
+ <button class="primary" onclick="speedNext()">Answer</button>
+</div>
+
+</div>
+
+<script>
+const words=[
+ {o:"Apple",t:"яблоко"},
+ {o:"Bread",t:"хлеб"},
+ {o:"Water",t:"вода"},
+ {o:"Airport",t:"аэропорт"},
+ {o:"Ticket",t:"билет"},
+ {o:"Hotel",t:"отель"},
+];
+
+let xp=+localStorage.xp||0;
+let lives=+localStorage.lives||3;
+let level=Math.floor(xp/100)+1;
+let current={},timer;
+
+/* INIT */
+updateStats();
+
+/* NAV */
+function show(id){
+ ["home","flash","quiz","write","speed"].forEach(s=>document.getElementById(s).classList.add("hidden"));
+ document.getElementById(id).classList.remove("hidden");
+}
+function goHome(){ show("home"); save(); }
+
+/* FLASH */
+function startFlash(){
+ current=randomWord();
+ document.getElementById("flashWord").innerText=current.o;
+ document.getElementById("flashBack").innerText=current.t;
+ document.getElementById("flashBack").classList.add("hidden");
+ show("flash");
+}
+function flipCard(){
+ document.getElementById("flashBack").classList.toggle("hidden");
+}
+function nextFlash(){ gainXP(10); startFlash(); }
+
+/* QUIZ */
+function startQuiz(){
+ current=randomWord();
+ document.getElementById("quizWord").innerText=current.o;
+ let opts=[current.t,"ошибка","неверно","не знаю"].sort(()=>Math.random()-0.5);
+ let box=document.getElementById("quizOptions"); box.innerHTML="";
+ opts.forEach(o=>{
+  let d=document.createElement("div");
+  d.className="option"; d.innerText=o;
+  d.onclick=()=>answer(o===current.t);
+  box.appendChild(d);
+ });
+ show("quiz");
+}
+
+/* WRITE */
+function startWrite(){
+ current=randomWord();
+ document.getElementById("writeWord").innerText=current.o;
+ document.getElementById("writeInput").value="";
+ show("write");
+}
+function checkWrite(){
+ answer(document.getElementById("writeInput").value.toLowerCase()===current.t);
+}
+
+/* SPEED */
+function startSpeed(){
+ current=randomWord();
+ document.getElementById("speedWord").innerText=current.o;
+ let t=5; document.getElementById("time").innerText=t;
+ timer=setInterval(()=>{
+  t--; document.getElementById("time").innerText=t;
+  if(t<=0){ clearInterval(timer); loseLife(); startSpeed(); }
+ },1000);
+ show("speed");
+}
+function speedNext(){ clearInterval(timer); gainXP(20); startSpeed(); }
+
+/* GAME */
+function answer(ok){
+ if(ok) gainXP(20);
+ else loseLife();
+ goHome();
+}
+function gainXP(v){
+ xp+=v; if(xp%100===0) lives++;
+ updateStats();
+}
+function loseLife(){
+ lives--; if(lives<=0){ lives=3; xp=0; }
+ updateStats();
+}
+function randomWord(){
+ return words[Math.floor(Math.random()*words.length)];
+}
+
+/* SAVE */
+function save(){
+ localStorage.xp=xp; localStorage.lives=lives;
+}
+function updateStats(){
+ document.getElementById("xp").innerText=xp;
+ document.getElementById("lives").innerText=lives;
+ document.getElementById("level").innerText=Math.floor(xp/100)+1;
+}
+</script>
+</body>
+</html>
